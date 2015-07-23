@@ -213,19 +213,31 @@ static int split (microrl_t * pThis, int limit, char const ** tkn_arr)
 //*****************************************************************************
 inline static void print_prompt (microrl_t * pThis)
 {
+#ifdef _PRIVATE_DATA
+	pThis->print (pThis->prompt_str, pThis->private_data);
+#else
 	pThis->print (pThis->prompt_str);
+#endif
 }
 
 //*****************************************************************************
 inline static void terminal_backspace (microrl_t * pThis)
 {
-		pThis->print ("\033[D \033[D");
+#ifdef _PRIVATE_DATA
+	pThis->print ("\033[D \033[D", pThis->private_data);
+#else
+	pThis->print ("\033[D \033[D");
+#endif
 }
 
 //*****************************************************************************
 inline static void terminal_newline (microrl_t * pThis)
 {
+#ifdef _PRIVATE_DATA
+	pThis->print (ENDL, pThis->private_data);
+#else
 	pThis->print (ENDL);
+#endif
 }
 
 #ifndef _USE_LIBC_STDIO
@@ -273,8 +285,12 @@ static void terminal_move_cursor (microrl_t * pThis, int offset)
 		strcpy (endstr, "D");
 	} else
 		return;
-#endif	
+#endif
+#ifdef _PRIVATE_DATA
+	pThis->print (str, pThis->private_data);
+#else
 	pThis->print (str);
+#endif
 }
 
 //*****************************************************************************
@@ -293,14 +309,22 @@ static void terminal_reset_cursor (microrl_t * pThis)
 	endstr = u16bit_to_str (_PROMPT_LEN, endstr);
 	strcpy (endstr, "C");
 #endif
+#ifdef _PRIVATE_DATA
+	pThis->print (str, pThis->private_data);
+#else
 	pThis->print (str);
+#endif
 }
 
 //*****************************************************************************
 // print cmdline to screen, replace '\0' to wihitespace 
 static void terminal_print_line (microrl_t * pThis, int pos, int cursor)
 {
+#ifdef _PRIVATE_DATA
+	pThis->print ("\033[K", pThis->private_data);    // delete all from cursor to end
+#else
 	pThis->print ("\033[K");    // delete all from cursor to end
+#endif
 
 	char nch [] = {0,0};
 	int i;
@@ -308,7 +332,11 @@ static void terminal_print_line (microrl_t * pThis, int pos, int cursor)
 		nch [0] = pThis->cmdline [i];
 		if (nch[0] == '\0')
 			nch[0] = ' ';
+#ifdef _PRIVATE_DATA
+		pThis->print (nch, pThis->private_data);
+#else
 		pThis->print (nch);
+#endif
 	}
 	
 	terminal_reset_cursor (pThis);
@@ -316,9 +344,16 @@ static void terminal_print_line (microrl_t * pThis, int pos, int cursor)
 }
 
 //*****************************************************************************
-void microrl_init (microrl_t * pThis, void (*print) (const char *)) 
+#ifdef _PRIVATE_DATA
+void microrl_init (microrl_t * pThis, void (*print)(const char*, void*), void * private_data)
+#else
+void microrl_init (microrl_t * pThis, void (*print)(const char*))
+#endif
 {
 	memset(pThis->cmdline, 0, _COMMAND_LINE_LEN);
+#ifdef _PRIVATE_DATA
+	pThis->private_data = private_data;
+#endif
 #ifdef _USE_HISTORY
 	memset(pThis->ring_hist.ring_buf, 0, _RING_HISTORY_LEN);
 	pThis->ring_hist.begin = 0;
@@ -340,19 +375,31 @@ void microrl_init (microrl_t * pThis, void (*print) (const char *))
 }
 
 //*****************************************************************************
+#ifdef _PRIVATE_DATA
+void microrl_set_complete_callback (microrl_t * pThis, char ** (*get_completion)(int, const char* const*, void *))
+#else
 void microrl_set_complete_callback (microrl_t * pThis, char ** (*get_completion)(int, const char* const*))
+#endif
 {
 	pThis->get_completion = get_completion;
 }
 
 //*****************************************************************************
+#ifdef _PRIVATE_DATA
+void microrl_set_execute_callback (microrl_t * pThis, int (*execute)(int, const char* const*, void *))
+#else
 void microrl_set_execute_callback (microrl_t * pThis, int (*execute)(int, const char* const*))
+#endif
 {
 	pThis->execute = execute;
 }
 #ifdef _USE_CTLR_C
 //*****************************************************************************
+#ifdef _PRIVATE_DATA
+void microrl_set_sigint_callback (microrl_t * pThis, void (*sigintf)(void *private_data))
+#else
 void microrl_set_sigint_callback (microrl_t * pThis, void (*sigintf)(void))
+#endif
 {
 	pThis->sigint = sigintf;
 }
@@ -494,7 +541,11 @@ static void microrl_get_complite (microrl_t * pThis)
 	int status = split (pThis, pThis->cursor, tkn_arr);
 	if (pThis->cmdline[pThis->cursor-1] == '\0')
 		tkn_arr[status++] = "";
+#ifdef _PRIVATE_DATA
+	compl_token = pThis->get_completion (status, tkn_arr, pThis->private_data);
+#else
 	compl_token = pThis->get_completion (status, tkn_arr);
+#endif
 	if (compl_token[0] != NULL) {
 		int i = 0;
 		int len;
@@ -505,8 +556,13 @@ static void microrl_get_complite (microrl_t * pThis)
 			len = common_len (compl_token);
 			terminal_newline (pThis);
 			while (compl_token [i] != NULL) {
+#ifdef _PRIVATE_DATA
+				pThis->print (compl_token[i], pThis->private_data);
+				pThis->print (" ", pThis->private_data);
+#else
 				pThis->print (compl_token[i]);
 				pThis->print (" ");
+#endif
 				i++;
 			}
 			terminal_newline (pThis);
@@ -538,11 +594,20 @@ void new_line_handler(microrl_t * pThis){
 	status = split (pThis, pThis->cmdlen, tkn_arr);
 	if (status == -1){
 		//          pThis->print ("ERROR: Max token amount exseed\n");
+#ifdef _PRIVATE_DATA
+		pThis->print ("ERROR:too many tokens", pThis->private_data);
+		pThis->print (ENDL, pThis->private_data);
+#else
 		pThis->print ("ERROR:too many tokens");
 		pThis->print (ENDL);
+#endif
 	}
 	if ((status > 0) && (pThis->execute != NULL))
+#ifdef _PRIVATE_DATA
+		pThis->execute (status, tkn_arr, pThis->private_data);
+#else
 		pThis->execute (status, tkn_arr);
+#endif
 	print_prompt (pThis);
 	pThis->cmdlen = 0;
 	pThis->cursor = 0;
@@ -614,7 +679,11 @@ void microrl_insert_char (microrl_t * pThis, int ch)
 			break;
 			//-----------------------------------------------------
 			case KEY_VT:  // ^K
+#ifdef _PRIVATE_DATA
+				pThis->print ("\033[K", pThis->private_data);
+#else
 				pThis->print ("\033[K");
+#endif
 				pThis->cmdlen = pThis->cursor;
 			break;
 			//-----------------------------------------------------
@@ -662,7 +731,11 @@ void microrl_insert_char (microrl_t * pThis, int ch)
 #ifdef _USE_CTLR_C
 			case KEY_ETX:
 			if (pThis->sigint != NULL)
+#ifdef _PRIVATE_DATA
+				pThis->sigint(pThis->private_data);
+#else
 				pThis->sigint();
+#endif
 			break;
 #endif
 			//-----------------------------------------------------

@@ -79,17 +79,33 @@ typedef struct {
 	char cmdline [_COMMAND_LINE_LEN];  // cmdline buffer
 	int cmdlen;                        // last position in command line
 	int cursor;                        // input cursor
+#ifdef _PRIVATE_DATA
+	int (*execute) (int argc, const char * const * argv, void * private_data);             // ptr to 'execute' callback
+	char ** (*get_completion) (int argc, const char * const * argv, void * private_data ); // ptr to 'completion' callback
+	void (*print) (const char *, void *);                                                  // ptr to 'print' callback
+#else
 	int (*execute) (int argc, const char * const * argv );            // ptr to 'execute' callback
 	char ** (*get_completion) (int argc, const char * const * argv ); // ptr to 'completion' callback
 	void (*print) (const char *);                                     // ptr to 'print' callback
+#endif
 #ifdef _USE_CTLR_C
+#ifdef _PRIVATE_DATA
+	void (*sigint) (void * private_data);
+#else
 	void (*sigint) (void);
+#endif
+#endif
+#ifdef _PRIVATE_DATA
+	void *private_data;
 #endif
 } microrl_t;
 
 // init internal data, calls once at start up
+#ifdef _PRIVATE_DATA
+void microrl_init (microrl_t * pThis, void (*print)(const char*, void*), void * private_data);
+#else
 void microrl_init (microrl_t * pThis, void (*print)(const char*));
-
+#endif
 // set echo mode (true/false), using for disabling echo for password input
 // echo mode will enabled after user press Enter.
 void microrl_set_echo (int);
@@ -100,15 +116,27 @@ void microrl_set_echo (int);
 //   must return NULL-terminated string, contain complite variant splitted by 'Whitespace'
 //   If complite token found, it's must contain only one token to be complitted
 //   Empty string if complite not found, and multiple string if there are some token
+#ifdef _PRIVATE_DATA
+void microrl_set_complete_callback (microrl_t * pThis, char ** (*get_completion)(int, const char* const*, void *));
+#else
 void microrl_set_complete_callback (microrl_t * pThis, char ** (*get_completion)(int, const char* const*));
+#endif
 
 // pointer to callback func, that called when user press 'Enter'
 // execute func param: argc - argument count, argv - pointer array to token string
+#ifdef _PRIVATE_DATA
+void microrl_set_execute_callback (microrl_t * pThis, int (*execute)(int, const char* const*, void *));
+#else
 void microrl_set_execute_callback (microrl_t * pThis, int (*execute)(int, const char* const*));
+#endif
 
 // set callback for Ctrl+C terminal signal
 #ifdef _USE_CTLR_C
+#ifdef _PRIVATE_DATA
+void microrl_set_sigint_callback (microrl_t * pThis, void (*sigintf)(void *private_data));
+#else
 void microrl_set_sigint_callback (microrl_t * pThis, void (*sigintf)(void));
+#endif
 #endif
 
 // insert char to cmdline (for example call in usart RX interrupt)

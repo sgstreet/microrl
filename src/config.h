@@ -5,7 +5,7 @@ Autor: Eugene Samoylov aka Helius (ghelius@gmail.com)
 #ifndef _MICRORL_CONFIG_H_
 #define _MICRORL_CONFIG_H_
 
-#define MICRORL_LIB_VER "1.5.1"
+#define MICRORL_LIB_VER "1.5.1-pd"
 
 /*********** CONFIG SECTION **************/
 /*
@@ -77,6 +77,12 @@ otherwise first prompt will print after first press Enter in terminal
 NOTE!: Enable it, if you call 'microrl_init' after your communication subsystem 
 already initialize and ready to print message */
 #undef _ENABLE_INIT_PROMPT
+
+/*
+Enable passing of private data across the call back interfaces.  This changes the
+signatures of the all callbacks and increase the sizeof the microrl_t structure by
+a void *.  Useful in some OO style designs. */
+#undef _PRIVATE_DATA
 
 /*
 New line symbol */
